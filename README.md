@@ -148,7 +148,7 @@ the release build:
 
 ```bash
 python3 tools/build_store_assets.py /tmp/cap   # captures -> stores/
-python3 tools/check_store_copy.py              # size/mode/copy limits
+python3 tools/check_store_copy.py              # sizes, copy limits, hosted pages
 ```
 
 `stores/README.md` documents the capture setup and the exact screenshot sizes.
