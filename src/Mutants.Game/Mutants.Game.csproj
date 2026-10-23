@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net10.0-android;net10.0-ios</TargetFrameworks>
+    <RootNamespace>Mutants.Game</RootNamespace>
+    <AssemblyName>Mutants.Game</AssemblyName>
+    <EnableDefaultContentItems>false</EnableDefaultContentItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mutants.Core\Mutants.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Content\Fonts\display.png" LogicalName="Mutants.Game.Fonts.display.png" />
+    <EmbeddedResource Include="Content\Fonts\display.json" LogicalName="Mutants.Game.Fonts.display.json" />
+    <EmbeddedResource Include="Content\Fonts\body.png" LogicalName="Mutants.Game.Fonts.body.png" />
+    <EmbeddedResource Include="Content\Fonts\body.json" LogicalName="Mutants.Game.Fonts.body.json" />
+    <EmbeddedResource Include="Content\Art\title.png" LogicalName="Mutants.Game.Art.title.png" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-android'">
+    <PackageReference Include="MonoGame.Framework.Android" Version="$(MonoGameVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-ios'">
+    <PackageReference Include="MonoGame.Framework.iOS" Version="$(MonoGameVersion)" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <MonoGameVersion>3.8.6</MonoGameVersion>
+    <ApplicationId>uk.co.allthejohnsons.mutants</ApplicationId>
+    <ApplicationTitle>Mutants</ApplicationTitle>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
+  </PropertyGroup>
+</Project>

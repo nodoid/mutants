@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <SupportedOSPlatformVersion>18.0</SupportedOSPlatformVersion>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Mutants.iOS</RootNamespace>
+    <AssemblyName>Mutants.iOS</AssemblyName>
+    <CodesignProvision Condition="'$(Configuration)' == 'Debug'">devel-mutants</CodesignProvision>
+    <CodesignProvision Condition="'$(Configuration)' == 'Release'">rel-mutants</CodesignProvision>
+    <CodesignKey Condition="'$(Configuration)' == 'Debug'">Apple Development</CodesignKey>
+    <CodesignKey Condition="'$(Configuration)' == 'Release'">Apple Distribution: Paul Johnson (3UH7BE38T3)</CodesignKey>
+    <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
+    <MtouchLink>SdkOnly</MtouchLink>
+    <AppIcon>AppIcon</AppIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mutants.Game\Mutants.Game.csproj" />
+    <PackageReference Include="MonoGame.Framework.iOS" Version="$(MonoGameVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ImageAsset Include="Assets.xcassets\**\*.png" />
+    <ImageAsset Include="Assets.xcassets\**\Contents.json" />
+  </ItemGroup>
+
+
+</Project>

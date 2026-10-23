@@ -1,0 +1,25 @@
+# .NET build output
+bin/
+obj/
+*.user
+*.suo
+
+# Test / coverage output
+TestResults/
+coverage/
+*.trx
+
+# IDE and OS noise
+.DS_Store
+.vs/
+.idea/
+*.swp
+
+# Signing material and local run artefacts
+*.mobileprovision
+*.p12
+*.cer
+*.ipa
+*.apk
+*.aab
+*.dSYM/
