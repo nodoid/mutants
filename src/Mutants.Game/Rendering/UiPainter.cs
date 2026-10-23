@@ -5,6 +5,22 @@ namespace Mutants.Game.Rendering;
 
 public static class UiPainter
 {
+    /// <summary>
+    /// SpriteBatch draws with premultiplied alpha, so a translucent tint has to
+    /// carry premultiplied channels. Handing it a full-brightness colour with a
+    /// low alpha adds light instead of fading, which washes out whatever is
+    /// drawn underneath (labels included).
+    /// </summary>
+    public static Color Tint(Color color, int alpha)
+    {
+        alpha = Math.Clamp(alpha, 0, 255);
+        return new Color(
+            (byte)(color.R * alpha / 255),
+            (byte)(color.G * alpha / 255),
+            (byte)(color.B * alpha / 255),
+            (byte)alpha);
+    }
+
     public static void Panel(
         SpriteBatch batch,
         Texture2D texture,
@@ -46,7 +62,7 @@ public static class UiPainter
         if (selected)
         {
             var glow = new Rectangle(rect.X - 6, rect.Y - 6, rect.Width + 12, rect.Height + 12);
-            batch.Draw(texture, glow, new Color((byte)182, (byte)242, (byte)107, (byte)38));
+            batch.Draw(texture, glow, Tint(ArtFactory.Lime, 38));
         }
     }
 
@@ -61,14 +77,14 @@ public static class UiPainter
     {
         Panel(batch, texture, rect, background, border, borderWidth: 2, shadow: 0);
         var inner = new Rectangle(rect.X + 4, rect.Y + 4, Math.Max(1, rect.Width - 8), Math.Max(1, rect.Height - 8));
-        batch.Draw(texture, inner, ArtFactory.A(fill, 40));
+        batch.Draw(texture, inner, Tint(fill, 60));
 
         var width = (int)(inner.Width * Math.Clamp(fraction, 0f, 1f));
         if (width > 0)
         {
             var filled = new Rectangle(inner.X, inner.Y, width, inner.Height);
             batch.Draw(texture, filled, fill);
-            batch.Draw(texture, new Rectangle(filled.X, filled.Y, filled.Width, Math.Max(2, filled.Height / 3)), ArtFactory.A(Color.White, 28));
+            batch.Draw(texture, new Rectangle(filled.X, filled.Y, filled.Width, Math.Max(2, filled.Height / 3)), Tint(Color.White, 28));
         }
     }
 }

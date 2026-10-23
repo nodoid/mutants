@@ -6,10 +6,12 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>Mutants.iOS</RootNamespace>
     <AssemblyName>Mutants.iOS</AssemblyName>
-    <CodesignProvision Condition="'$(Configuration)' == 'Debug'">devel-mutants</CodesignProvision>
-    <CodesignProvision Condition="'$(Configuration)' == 'Release'">rel-mutants</CodesignProvision>
-    <CodesignKey Condition="'$(Configuration)' == 'Debug'">Apple Development</CodesignKey>
-    <CodesignKey Condition="'$(Configuration)' == 'Release'">Apple Distribution: Paul Johnson (3UH7BE38T3)</CodesignKey>
+    <!-- Signing identities are not committed: pass them on the command line, or
+         let the build pick the first matching identity in your keychain. -->
+    <CodesignProvision Condition="'$(CodesignProvision)' == '' And '$(Configuration)' == 'Debug'">devel-mutants</CodesignProvision>
+    <CodesignProvision Condition="'$(CodesignProvision)' == '' And '$(Configuration)' == 'Release'">rel-mutants</CodesignProvision>
+    <CodesignKey Condition="'$(CodesignKey)' == '' And '$(Configuration)' == 'Debug'">Apple Development</CodesignKey>
+    <CodesignKey Condition="'$(CodesignKey)' == '' And '$(Configuration)' == 'Release'">Apple Distribution</CodesignKey>
     <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
     <MtouchLink>SdkOnly</MtouchLink>
     <AppIcon>AppIcon</AppIcon>

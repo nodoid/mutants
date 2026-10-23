@@ -376,7 +376,7 @@ def build_wordmark(width: int = 1400, height: int = 460) -> Image.Image:
         gx += cw + tracking
 
     # Tagline.
-    tag = "THE HOLLOW HOUR"
+    tag = "THE HAUNTING HOUR"
     tag_tracking = 12
     tag_widths = [tagline_face.getlength(ch) for ch in tag]
     tag_total = sum(tag_widths) + tag_tracking * (len(tag) - 1)

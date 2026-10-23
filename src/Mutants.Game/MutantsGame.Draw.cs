@@ -19,6 +19,13 @@ public sealed partial class MutantsGame
         UiPainter.Button(_sprite, _art.Panel, PlayButton, PanelFill, ArtFactory.Lime, selected: true);
         UiPainter.Button(_sprite, _art.Panel, ScoresButton, PanelFill, PanelEdge);
         UiPainter.Button(_sprite, _art.Panel, HelpButton, PanelFill, PanelEdge);
+        UiPainter.Button(
+            _sprite,
+            _art.Panel,
+            SoundButton,
+            _audio.Muted ? new Color((byte)46, (byte)16, (byte)22, (byte)235) : PanelSoft,
+            _audio.Muted ? ArtFactory.Blood : ArtFactory.Lime,
+            borderWidth: _audio.Muted ? 3 : 2);
     }
 
     private void DrawTitleText()
@@ -31,6 +38,13 @@ public sealed partial class MutantsGame
         _art.Display.DrawCentered(_sprite, "PLAY", PlayButton.Center.X, PlayButton.Y + 20, 34, ArtFactory.Bone, shadow: true);
         _art.Display.DrawCentered(_sprite, "HIGH SCORES", ScoresButton.Center.X, ScoresButton.Y + 17, 24, ArtFactory.Bone);
         _art.Display.DrawCentered(_sprite, "HOW TO SURVIVE", HelpButton.Center.X, HelpButton.Y + 15, 20, ArtFactory.Bone);
+        _art.Display.DrawCentered(
+            _sprite,
+            _audio.Muted ? "SOUND OFF" : "SOUND ON",
+            SoundButton.Center.X,
+            SoundButton.Y + 15,
+            18,
+            _audio.Muted ? ArtFactory.Ember : ArtFactory.Bone);
 
         _art.Body.DrawCentered(
             _sprite,
@@ -42,7 +56,7 @@ public sealed partial class MutantsGame
             alpha: 0.9f);
 
         _art.Body.Draw(_sprite, "v1.0", new Vector2(36, 684), 16, new Color((byte)120, (byte)113, (byte)134));
-        _art.Body.Draw(_sprite, "2026 ALL THE JOHNSONS", new Vector2(944, 684), 16, new Color((byte)120, (byte)113, (byte)134));
+        _art.Body.Draw(_sprite, "2026 PAUL F JOHNSON", new Vector2(944, 684), 16, new Color((byte)120, (byte)113, (byte)134));
     }
 
     private void DrawMenuBackdrop()
@@ -191,7 +205,7 @@ public sealed partial class MutantsGame
 
         _art.Body.DrawCentered(
             _sprite,
-            "KEYBOARD: WASD / ARROWS - SPACE TO BLAST - ESC TO PAUSE",
+            "KEYBOARD: WASD / ARROWS - SPACE TO BLAST - ESC PAUSES - M MUTES",
             VirtualWidth / 2f,
             540,
             16,
@@ -222,7 +236,7 @@ public sealed partial class MutantsGame
             }
             else if (row % 2 == 1)
             {
-                _sprite.Draw(_art.Panel, new Rectangle(200, y - 4, 880, 41), new Color((byte)255, (byte)255, (byte)255, (byte)10));
+                _sprite.Draw(_art.Panel, new Rectangle(200, y - 4, 880, 41), UiPainter.Tint(Color.White, 14));
             }
         }
 
@@ -398,19 +412,19 @@ public sealed partial class MutantsGame
         _sprite.Draw(
             _art.JoystickBase,
             new Rectangle((int)joystickCenter.X - 105, (int)joystickCenter.Y - 105, 210, 210),
-            new Color((byte)255, (byte)255, (byte)255, (byte)(255 * alpha)));
+            UiPainter.Tint(Color.White, (int)(255 * alpha)));
 
         var knob = joystickCenter + (_joystickVector * 70f);
         _sprite.Draw(
             _art.JoystickKnob,
             new Rectangle((int)knob.X - 42, (int)knob.Y - 42, 84, 84),
-            new Color((byte)255, (byte)255, (byte)255, (byte)(255 * alpha)));
+            UiPainter.Tint(Color.White, (int)(255 * alpha)));
 
         var attackCenter = new Vector2(1090, 566);
         _sprite.Draw(
             _art.JoystickBase,
             new Rectangle((int)attackCenter.X - 98, (int)attackCenter.Y - 98, 196, 196),
-            new Color((byte)255, (byte)158, (byte)61, _attackHeld ? (byte)150 : (byte)70));
+            UiPainter.Tint(ArtFactory.Ember, _attackHeld ? 150 : 70));
 
         var cooldown = Math.Clamp(world.Player.AttackCooldown / 0.26f, 0f, 1f);
         if (cooldown > 0f)
@@ -418,7 +432,7 @@ public sealed partial class MutantsGame
             _sprite.Draw(
                 _art.Glow,
                 new Rectangle((int)attackCenter.X - 82, (int)attackCenter.Y - 82, 164, 164),
-                new Color((byte)255, (byte)158, (byte)61, (byte)(70 * cooldown)));
+                UiPainter.Tint(ArtFactory.Ember, (int)(70 * cooldown)));
         }
     }
 
@@ -579,7 +593,7 @@ public sealed partial class MutantsGame
 
         _art.Body.DrawCentered(
             _sprite,
-            _victory ? "THE HOLLOW HOUR ENDS. FOR NOW." : "THE LANTERN GOES OUT.",
+            _victory ? "THE HAUNTING HOUR ENDS. FOR NOW." : "THE LANTERN GOES OUT.",
             VirtualWidth / 2f,
             168,
             18,

@@ -4,6 +4,8 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Input.Touch;
 using Mutants.Core;
+using Mutants.Core.Audio;
+using Mutants.Game.Audio;
 using Mutants.Game.Rendering;
 using NVector2 = System.Numerics.Vector2;
 using Vector2 = Microsoft.Xna.Framework.Vector2;
@@ -42,9 +44,11 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
     private static readonly Rectangle GameOverTitleButton = new(490, 614, 300, 58);
     private static readonly Rectangle SaveButton = new(490, 540, 300, 64);
     private static readonly Rectangle HighScoresBackButton = new(490, 626, 300, 60);
+    private static readonly Rectangle SoundButton = new(1042, 24, 210, 54);
 
     private readonly GraphicsDeviceManager _graphics;
     private readonly FileHighScoreStore _store = new();
+    private readonly FileSettingsStore _settingsStore = new();
     private readonly ParticleSystem _particles = new();
     private readonly Random _random = new(1979);
     private readonly List<Vector2> _taps = new();
@@ -54,7 +58,9 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
     private RenderTarget2D _scene = null!;
     private ArtFactory _art = null!;
     private WorldRenderer _worldRenderer = null!;
+    private AudioDirector _audio = null!;
     private HighScoreTable _scores = new();
+    private GameSettings _settings = GameSettings.Default;
     private RunState? _run;
     private GameWorld? _seenWorld;
     private DifficultyProfile _difficulty = DifficultyProfile.For(Difficulty.Midnight);
@@ -78,8 +84,7 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
     private Vector2 _joystickVector;
     private bool _attackHeld;
     private bool _pauseTap;
-    private Vector2 _lastTapPosition;
-    private float _lastTapTime = -10f;
+    private readonly TapDeduplicator _tapFilter = new();
     private int _selectedDifficulty = 1;
     private int _selectedSlot;
     private int _pendingScore;
@@ -130,14 +135,19 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
             SurfaceFormat.Color,
             DepthFormat.None);
 
+        _audio = new AudioDirector();
+        _settings = _settingsStore.Load();
+        _audio.Muted = !_settings.SoundEnabled;
         _scores = _store.Load();
         Debug.WriteLine($"Loaded {_scores.Count} high scores from {_store.FilePath}");
         _camera = new Vector2(0, 0);
         UpdateViewport();
+        DemoStart();
     }
 
     protected override void UnloadContent()
     {
+        _audio?.Dispose();
         _scene?.Dispose();
         _art?.Dispose();
         _sprite?.Dispose();
@@ -151,7 +161,14 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
             ChangeScreen(GameScreen.Paused);
         }
 
+        _audio?.PauseMusic();
         base.OnDeactivated(sender, args);
+    }
+
+    protected override void OnActivated(object sender, EventArgs args)
+    {
+        _audio?.ResumeMusic();
+        base.OnActivated(sender, args);
     }
 
     protected override void Update(GameTime gameTime)
@@ -161,6 +178,12 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
         _keyboard = Keyboard.GetState();
         UpdateViewport();
         ReadInput();
+        DemoUpdate(dt);
+
+        if (KeyPressed(Keys.M))
+        {
+            ToggleSound();
+        }
 
         _particles.Update(dt);
         _shake = MathF.Max(0f, _shake - (dt * 18f));
@@ -197,6 +220,8 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
                 ((float)_random.NextDouble() * 2f - 1f) * _shake,
                 ((float)_random.NextDouble() * 2f - 1f) * _shake)
             : Vector2.Zero;
+
+        UpdateMusic();
 
         _previousKeyboard = _keyboard;
         base.Update(gameTime);
@@ -291,17 +316,25 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
     {
         _particles.Ambient(LevelTheme.Graveyard, new RectangleF(0, 0, VirtualWidth, VirtualHeight), dt);
 
+        if (Tapped(SoundButton))
+        {
+            ToggleSound();
+        }
+
         if (Tapped(PlayButton) || KeyPressed(Keys.Enter) || KeyPressed(Keys.Space))
         {
+            _audio.Play(Sfx.MenuSelect);
             ChangeScreen(GameScreen.Difficulty);
         }
         else if (Tapped(ScoresButton))
         {
+            _audio.Play(Sfx.MenuSelect);
             _highlightRank = -1;
             ChangeScreen(GameScreen.HighScores);
         }
         else if (Tapped(HelpButton))
         {
+            _audio.Play(Sfx.MenuSelect);
             ChangeScreen(GameScreen.HowTo);
         }
     }
@@ -314,6 +347,11 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
         {
             if (Tapped(DifficultyCard(i)))
             {
+                if (_selectedDifficulty != i)
+                {
+                    _audio.Play(Sfx.MenuMove);
+                }
+
                 _selectedDifficulty = i;
             }
         }
@@ -321,19 +359,23 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
         if (KeyPressed(Keys.Left) || KeyPressed(Keys.A))
         {
             _selectedDifficulty = Math.Max(0, _selectedDifficulty - 1);
+            _audio.Play(Sfx.MenuMove);
         }
 
         if (KeyPressed(Keys.Right) || KeyPressed(Keys.D))
         {
             _selectedDifficulty = Math.Min(DifficultyProfile.All.Count - 1, _selectedDifficulty + 1);
+            _audio.Play(Sfx.MenuMove);
         }
 
         if (Tapped(StartButton) || KeyPressed(Keys.Enter) || KeyPressed(Keys.Space))
         {
+            _audio.Play(Sfx.MenuSelect);
             StartRun(DifficultyProfile.All[_selectedDifficulty].Difficulty);
         }
         else if (Tapped(BackButton) || KeyPressed(Keys.Escape))
         {
+            _audio.Play(Sfx.MenuBack);
             ChangeScreen(GameScreen.Title);
         }
     }
@@ -344,6 +386,7 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
 
         if (Tapped(new Rectangle(490, 596, 300, 62)) || KeyPressed(Keys.Escape) || KeyPressed(Keys.Enter))
         {
+            _audio.Play(Sfx.MenuBack);
             ChangeScreen(GameScreen.Title);
         }
     }
@@ -407,18 +450,21 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
     {
         if (Tapped(ResumeButton) || KeyPressed(Keys.Escape) || KeyPressed(Keys.P))
         {
+            _audio.Play(Sfx.MenuSelect);
             ChangeScreen(GameScreen.Playing);
             return;
         }
 
         if (Tapped(RestartButton))
         {
+            _audio.Play(Sfx.MenuSelect);
             StartRun(_difficulty.Difficulty);
             return;
         }
 
         if (Tapped(QuitButton))
         {
+            _audio.Play(Sfx.MenuBack);
             _run = null;
             _seenWorld = null;
             _particles.Clear();
@@ -437,12 +483,14 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
             var saveTapped = Tapped(SaveButton);
             if (KeyPressed(Keys.Enter) || saveTapped)
             {
+                _audio.Play(Sfx.SaveRecord);
                 SavePendingScore();
                 return;
             }
 
             if (KeyPressed(Keys.Escape))
             {
+                _audio.Play(Sfx.MenuBack);
                 ChangeScreen(GameScreen.Title);
             }
 
@@ -451,10 +499,12 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
 
         if (Tapped(GameOverScoresButton) || KeyPressed(Keys.Enter))
         {
+            _audio.Play(Sfx.MenuSelect);
             ChangeScreen(GameScreen.HighScores);
         }
         else if (Tapped(GameOverTitleButton) || KeyPressed(Keys.Escape))
         {
+            _audio.Play(Sfx.MenuBack);
             ChangeScreen(GameScreen.Title);
         }
     }
@@ -473,12 +523,14 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
             {
                 _selectedSlot = slot;
                 ChangeInitial(slot, 1);
+                _audio.Play(Sfx.MenuMove);
             }
 
             if (Tapped(InitialDown(slot)))
             {
                 _selectedSlot = slot;
                 ChangeInitial(slot, -1);
+                _audio.Play(Sfx.MenuMove);
             }
         }
 
@@ -509,6 +561,7 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
 
         if (Tapped(HighScoresBackButton) || KeyPressed(Keys.Escape) || KeyPressed(Keys.Enter))
         {
+            _audio.Play(Sfx.MenuBack);
             ChangeScreen(GameScreen.Title);
         }
     }
@@ -525,7 +578,7 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
 
             if (touch.State == TouchLocationState.Pressed)
             {
-                RegisterTap(position);
+                RegisterTap(position, fromGesture: false);
 
                 if (_screen == GameScreen.Playing && !Contains(PauseButton, position))
                 {
@@ -580,7 +633,7 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
             var gesture = TouchPanel.ReadGesture();
             if (gesture.GestureType == GestureType.Tap)
             {
-                RegisterTap(ScreenToVirtual(new Vector2(gesture.Position.X, gesture.Position.Y)));
+                RegisterTap(ScreenToVirtual(new Vector2(gesture.Position.X, gesture.Position.Y)), fromGesture: true);
             }
         }
 
@@ -593,15 +646,14 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
         }
     }
 
-    private void RegisterTap(Vector2 position)
+    private void RegisterTap(Vector2 position, bool fromGesture)
     {
-        if (_time - _lastTapTime < 0.08f && Vector2.DistanceSquared(position, _lastTapPosition) < 900f)
+        var tap = new NVector2(position.X, position.Y);
+        if (!_tapFilter.TryRegister(tap, _time, fromGesture))
         {
             return;
         }
 
-        _lastTapPosition = position;
-        _lastTapTime = _time;
         _taps.Add(position);
 
         if (_screen == GameScreen.Playing && Contains(PauseButton, position))
@@ -630,6 +682,7 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
     {
         _difficulty = DifficultyProfile.For(difficulty);
         _selectedDifficulty = (int)difficulty;
+        _audio.Play(Sfx.LevelStart);
         _run = new RunState(_difficulty);
         _seenWorld = _run.World;
         _camera = ClampCamera(_run.World);
@@ -662,6 +715,7 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
         _saveError = string.Empty;
         _flash = 0.8f;
         _flashColor = _victory ? ArtFactory.Lime : ArtFactory.Blood;
+        _audio.Play(_victory ? Sfx.Victory : Sfx.PlayerDied);
         ChangeScreen(GameScreen.GameOver);
     }
 
@@ -696,6 +750,55 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
 
             ChangeScreen(GameScreen.HighScores);
         }
+    }
+
+    private void ToggleSound()
+    {
+        _audio.Muted = !_audio.Muted;
+        _settings = _settings with { SoundEnabled = !_audio.Muted };
+
+        try
+        {
+            _settingsStore.Save(_settings);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Debug.WriteLine(exception);
+        }
+
+        if (!_audio.Muted)
+        {
+            _audio.Play(Sfx.MenuSelect);
+        }
+
+        ShowToast(_audio.Muted ? "SOUND OFF" : "SOUND ON", ArtFactory.Bone, 1.2f);
+    }
+
+    /// <summary>Keeps one loop running to match the screen and the boss state.</summary>
+    private void UpdateMusic()
+    {
+        if (_screen is GameScreen.Title or GameScreen.Difficulty or GameScreen.HowTo or GameScreen.HighScores)
+        {
+            _audio.EnsureMusic(MusicTrack.Title);
+            return;
+        }
+
+        if ((_screen is GameScreen.Playing or GameScreen.Paused) && _run is not null)
+        {
+            var boss = _run.World.Boss;
+            if (boss.Awake && boss.IsAlive)
+            {
+                _audio.EnsureMusic(MusicTrack.Boss);
+            }
+            else
+            {
+                _audio.EnsureMusic(MusicTrack.District, _run.World.Map.Theme);
+            }
+
+            return;
+        }
+
+        _audio.StopMusic();
     }
 
     private void ChangeScreen(GameScreen screen)
@@ -740,29 +843,35 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
             {
                 case WorldEventType.Coin:
                     _particles.Burst(position, ArtFactory.Steel, 6, 90f, 0.5f, 14f);
+                    _audio.Play(Sfx.Coin, 0.7f, 0.06f);
                     break;
 
                 case WorldEventType.Key:
                     _particles.Burst(position, ArtFactory.Gold, 18, 160f, 0.9f, 22f);
                     ShowToast($"KEY {evt.Value} OF 3", ArtFactory.Gold, 2f);
+                    _audio.Play(Sfx.Key);
                     break;
 
                 case WorldEventType.Heart:
                     _particles.Burst(position, ArtFactory.Blood, 14, 140f, 0.8f, 20f);
                     ShowToast("VIGOUR RESTORED", ArtFactory.Blood, 1.8f);
+                    _audio.Play(Sfx.Heart);
                     break;
 
                 case WorldEventType.EnemyHit:
                     _particles.Burst(position, ArtFactory.Lime, 5, 110f, 0.35f, 12f);
+                    _audio.Play(Sfx.EnemyHit, 0.55f, 0.12f);
                     break;
 
                 case WorldEventType.EnemyKilled:
                     _particles.Burst(position, ArtFactory.Toxic, 20, 220f, 0.9f, 24f);
                     _particles.Burst(position, ArtFactory.Violet, 8, 150f, 0.8f, 18f);
+                    _audio.Play(Sfx.EnemyKilled, 0.75f, 0.1f);
                     break;
 
                 case WorldEventType.PlayerHurt:
                     _particles.Burst(position, ArtFactory.Blood, 16, 200f, 0.8f, 22f);
+                    _audio.Play(Sfx.PlayerHurt);
                     _shake = MathF.Min(16f, _shake + 10f);
                     _flash = 0.45f;
                     _flashColor = ArtFactory.Blood;
@@ -770,6 +879,7 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
 
                 case WorldEventType.GateOpened:
                     _particles.Burst(world.Map.GatePosition, ArtFactory.Lime, 32, 260f, 1.2f, 26f);
+                    _audio.Play(Sfx.GateOpen);
                     ShowToast("THE GATE IS OPEN", ArtFactory.Lime, 2.8f);
                     _shake = 8f;
                     _flash = 0.35f;
@@ -777,11 +887,13 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
                     break;
 
                 case WorldEventType.BossAwakened:
+                    _audio.Play(Sfx.BossAwaken);
                     _shake = 14f;
                     ShowToast("THE HOLLOW KING AWAKENS", ArtFactory.Blood, 3f);
                     break;
 
                 case WorldEventType.BossDefeated:
+                    _audio.Play(Sfx.BossDefeated);
                     _particles.Burst(position, ArtFactory.Blood, 48, 320f, 1.4f, 34f);
                     _particles.Burst(position, ArtFactory.Ember, 30, 260f, 1.1f, 26f);
                     ShowToast("THE GATEKEEPER FALLS", ArtFactory.Ember, 3f);
@@ -792,6 +904,7 @@ public sealed partial class MutantsGame : Microsoft.Xna.Framework.Game
 
                 case WorldEventType.ShotFired:
                     _particles.Trail(position, new NVector2(world.Player.Facing.X, world.Player.Facing.Y), ArtFactory.Lime, 2);
+                    _audio.Play(Sfx.Shot, 0.5f, 0.08f);
                     break;
             }
         }
