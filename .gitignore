@@ -15,6 +15,11 @@ coverage/
 .idea/
 *.swp
 
+# Generated store material and release builds: produced locally, never tracked
+stores/
+releases/
+Movies/
+
 # Signing material and local run artefacts
 *.mobileprovision
 *.p12
