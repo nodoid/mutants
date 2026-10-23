@@ -9,6 +9,7 @@ Usage:
 
 from __future__ import annotations
 
+import html.parser
 import re
 import sys
 from pathlib import Path
@@ -82,11 +83,16 @@ def check_images() -> None:
     check(icon.size == (1024, 1024), f"apple icon is {icon.size}")
     check(icon.mode == "RGB", f"apple icon mode is {icon.mode} (must be RGB, no alpha)")
 
-    iphone = sorted((apple_dir / "iphone-6.9").glob("*.png"))
+    # Apple requires the "iPhone with Dynamic Island (medium display)" slot, which
+    # accepts 2556x1179 and 2622x1206 in landscape. The 6.9" 2868x1320 set is now
+    # optional and must not be shipped as the required one.
+    check(not (apple_dir / "iphone-6.9").exists(), "obsolete iphone-6.9 set is still present")
+    iphone = sorted((apple_dir / "iphone-6.3").glob("*.png"))
     check(3 <= len(iphone) <= 10, f"apple iphone count is {len(iphone)}")
     for path in iphone:
         image = Image.open(path)
-        check(image.size == (2868, 1320), f"{path.name}: {image.size} != 2868x1320")
+        check(image.size in {(2622, 1206), (2556, 1179)}, f"{path.name}: {image.size} is not an accepted medium-display size")
+        check(image.width / image.height > 2.0, f"{path.name}: not landscape")
         check(image.mode == "RGB", f"{path.name}: mode {image.mode} has alpha")
 
     ipad = sorted((apple_dir / "ipad-13").glob("*.png"))
@@ -118,6 +124,86 @@ def check_images() -> None:
         check(image.size == (2560, 1440), f"{path.name}: {image.size} != 2560x1440")
 
 
+class _TagBalance(html.parser.HTMLParser):
+    """Catch a page that renders wrong because a tag was left open."""
+
+    VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input",
+            "link", "meta", "source", "track", "wbr"}
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.stack: list[str] = []
+        self.errors: list[str] = []
+        self.ids: set[str] = set()
+        self.fragments: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if "id" in attributes:
+            self.ids.add(attributes["id"])
+        href = attributes.get("href", "")
+        if href.startswith("#"):
+            self.fragments.append(href[1:])
+        if tag not in self.VOID:
+            self.stack.append(tag)
+
+    def handle_endtag(self, tag):
+        if not self.stack or self.stack[-1] != tag:
+            self.errors.append(f"unbalanced </{tag}>")
+        else:
+            self.stack.pop()
+
+
+def check_pages() -> None:
+    """The support and privacy pages are what the stores link to."""
+    for name in ["support.html", "privacy.html"]:
+        path = STORES / name
+        check(path.is_file(), f"stores/{name} is missing")
+        if not path.is_file():
+            continue
+        text = path.read_text()
+        parser = _TagBalance()
+        parser.feed(text)
+        parser.close()
+        check(text.lstrip().lower().startswith("<!doctype html>"), f"{name} has no doctype")
+        check(not parser.stack, f"{name} leaves <{parser.stack[-1] if parser.stack else ''}> open")
+        check(not parser.errors, f"{name} has unbalanced tags: {parser.errors[:2]}")
+        missing = [f for f in parser.fragments if f not in parser.ids]
+        check(not missing, f"{name} links to missing anchors: {missing}")
+        check(not re.search(r'(?:src|href)="https?://', text), f"{name} loads something from the network")
+        check("__ICON" not in text, f"{name} still contains a placeholder")
+        check("Paul F Johnson" in text, f"{name} does not carry the copyright line")
+        check(len(text) > 5000, f"{name} looks empty")
+
+    support = (STORES / "support.html").read_text()
+    privacy = (STORES / "privacy.html").read_text()
+    check('href="privacy.html"' in support, "support.html does not link the privacy policy")
+    check('href="support.html"' in privacy, "privacy.html does not link support")
+    check("collects no data" in support or "collects nothing" in support,
+          "support.html does not state the privacy answer")
+
+
+def check_submission_text() -> None:
+    """The console answer sheets must exist and stay free of placeholders."""
+    apple = STORES / "apple" / "app-store-connect.md"
+    google = STORES / "google" / "play-console.md"
+    for path in [apple, google]:
+        check(path.is_file(), f"{path.relative_to(ROOT)} is missing")
+        if not path.is_file():
+            continue
+        text = path.read_text()
+        check("TODO" not in text, f"{path.name} still has a TODO")
+        check("<your" not in text, f"{path.name} still has a placeholder name")
+        check("Data" in text, f"{path.name} does not answer the data questions")
+
+    apple_text = apple.read_text() if apple.is_file() else ""
+    google_text = google.read_text() if google.is_file() else ""
+    for label, text in [("App Store Connect", apple_text), ("Play Console", google_text)]:
+        check("support.html" in text or "privacy.html" in text,
+              f"{label} answers do not name the hosted pages")
+        check("privacy.html" in text, f"{label} answers have no privacy policy URL")
+
+
 def check_movie() -> None:
     movie = ROOT / "Movies" / "Mutants-iPad-gameplay.mp4"
     check(movie.is_file(), "Movies/Mutants-iPad-gameplay.mp4 is missing")
@@ -129,6 +215,8 @@ def check_movie() -> None:
 def main() -> int:
     check_copy()
     check_images()
+    check_pages()
+    check_submission_text()
     check_movie()
 
     for failure in FAILURES:

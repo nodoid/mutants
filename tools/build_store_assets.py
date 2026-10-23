@@ -10,8 +10,12 @@ Usage:
 
 `capture-dir` defaults to /tmp/cap and must contain:
 
-    iphone/<name>.png   2868x1320 iPhone 6.9" captures (landscape, 19.5:9)
+    iphone/<name>.png   2622x1206 iPhone 6.3" captures (landscape, 19.5:9)
     ipad/<name>.png     2752x2064 iPad 13" captures (landscape, 4:3)
+
+2622x1206 is the size App Store Connect lists under "iPhone with Dynamic
+Island (medium display)", the slot Apple now requires; the old 6.9" 2868x1320
+set became optional and is no longer built.
 """
 
 from __future__ import annotations
@@ -33,9 +37,9 @@ LIME = (182, 242, 107)
 BONE = (236, 230, 216)
 MUTED = (185, 174, 200)
 
-IPHONE_FRAME = (2868, 1320)
+IPHONE_FRAME = (2622, 1206)
 IPAD_FRAME = (2752, 2064)
-IPHONE_BAND = (261, 0, 2607, 1320)       # 16:9 picture inside the 19.5:9 frame
+IPHONE_BAND = (239, 0, 2383, 1206)       # 16:9 picture inside the 19.5:9 frame
 IPAD_BAND = (0, 258, 2752, 1806)         # 16:9 picture inside the 4:3 frame
 
 # Marketing order: hook first, then play, then the systems that sell the game.
@@ -90,7 +94,7 @@ def build_apple() -> None:
     for name, source in IPHONE_SHOTS:
         raw = load_rgb(CAPTURES / "iphone" / f"{source}.png")
         assert raw.size == IPHONE_FRAME, f"{source}: expected {IPHONE_FRAME}, got {raw.size}"
-        save_png(raw, STORES / "apple" / "iphone-6.9" / f"{name}.png")
+        save_png(raw, STORES / "apple" / "iphone-6.3" / f"{name}.png")
 
     for name, source in IPAD_SHOTS:
         raw = load_rgb(CAPTURES / "ipad" / f"{source}.png")
