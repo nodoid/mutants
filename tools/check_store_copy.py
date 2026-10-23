@@ -196,6 +196,10 @@ def check_submission_text() -> None:
         check("<your" not in text, f"{path.name} still has a placeholder name")
         check("Data" in text, f"{path.name} does not answer the data questions")
 
+    # A stale TODO in any listing document means a field has no answer yet.
+    for path in sorted(STORES.rglob("*.md")):
+        check("TODO" not in path.read_text(), f"{path.relative_to(STORES)} still has a TODO")
+
     apple_text = apple.read_text() if apple.is_file() else ""
     google_text = google.read_text() if google.is_file() else ""
     for label, text in [("App Store Connect", apple_text), ("Play Console", google_text)]:
